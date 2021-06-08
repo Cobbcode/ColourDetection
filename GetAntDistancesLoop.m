@@ -13,6 +13,16 @@ switch answers
         getInputFolder = uigetdir([],"Choose Input Folder");
         getOutputFolder = uigetdir([],"Choose Output Folder");
         getParametersFolder = uigetdir([],"Choose Parameters Folder");
+    case 'Home'
+        getInputFolder = "F:\Temnothorax_fusion\fusion_experiment\images\images_original";
+        getOutputFolder = "C:\Users\Ben\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_output";
+        getParametersFolder = "C:\Users\Ben\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_parameters";
+        getTrialsProcessedFolder = "C:\Users\Ben\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_trials_processed";
+    case 'University'
+        getInputFolder = "D:\Temnothorax_fusion\fusion_experiment\images\images_original";
+        getOutputFolder = "C:\Users\bc16551\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_output";
+        getParametersFolder = "C:\Users\bc16551\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_parameters";
+        getTrialsProcessedFolder = "C:\Users\bc16551\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_trials_processed";
     otherwise
         errorMessage = sprintf("%s","Error: No folders chosen");
         uiwait(warndlg(errorMessage));
@@ -152,7 +162,8 @@ for k = 56:56(InputFolders);
     %Invader queen 1
     if contains(Queen_invader_1_filename,"NA")
         fprintf("Invader queen 1 = NA, not attempting to read file\n")
-    else if ~isfile(Queen_invader_1_filename)
+    else
+        if ~isfile(Queen_invader_1_filename)
             fprintf("%s%s\n","Warning: invader queen 1 file not found:",Queen_invader_1_colour)
         else
             Queen_invader_1 = readtable(Queen_invader_1_filename);
@@ -163,7 +174,8 @@ for k = 56:56(InputFolders);
     % Invader queen 2
     if contains(Queen_invader_2_filename,"NA")
         fprintf("Invader queen 2 = NA, not attempting to read file\n")
-    else if ~isfile(Queen_invader_2_filename)
+    else
+        if ~isfile(Queen_invader_2_filename)
             fprintf("%s%s\n","Warning: invader queen 2 file not found:",Queen_invader_2_colour)
         else
             Queen_invader_2 = readtable(Queen_invader_2_filename);
@@ -173,7 +185,8 @@ for k = 56:56(InputFolders);
     
     if contains(Queen_host_1_filename,"NA")
        fprintf("Host queen 1 = NA, not attempting to read file\n")
-    else if ~isfile(Queen_host_1_filename)
+    else
+        if ~isfile(Queen_host_1_filename)
              fprintf("%s%s\n","Warning: host queen 1 file not found:",Queen_host_1_colour)
         else
             Queen_host_1 = readtable(Queen_host_1_filename);
@@ -183,7 +196,8 @@ for k = 56:56(InputFolders);
     
     if contains(Queen_host_2_filename,"NA")
         fprintf("Host queen 2 = NA, not attempting to read file\n")
-    else if ~isfile(Queen_host_2_filename)
+    else
+        if ~isfile(Queen_host_2_filename)
            fprintf("%s%s\n","Warning: host queen 2 file not found:",Queen_host_2_colour)
         else
             Queen_host_2 = readtable(Queen_host_2_filename);
@@ -192,7 +206,8 @@ for k = 56:56(InputFolders);
     end
     if contains(Queen_host_3_filename,"NA")
         fprintf("Host queen 3 = NA, not attempting to read file\n")
-    else if ~isfile(Queen_host_3_filename)
+    else
+        if ~isfile(Queen_host_3_filename)
              fprintf("%s%s\n","Warning: host queen 3 file not found:",Queen_host_3_colour)
         else
             Queen_host_3 = readtable(Queen_host_3_filename);
@@ -206,48 +221,31 @@ unique_image_list_host = unique(Workers_host.Image);
 
 % For each image, 
 % First loop - for each image of the host txt file, index the table to extract all coordinates for just one image
-for f = 1:1(jpgFiles)
+for f = 300:350(jpgFiles);
    
     % get current image name
-    current_image = sprintf("%s",jpgFiles(f).name)
+    current_image = sprintf("%s",jpgFiles(f).name);
     
-    % index the table, only those that match the current image being
-    % processed
+    % Process host-host distances
+    index_workers = Workers_host.Image == current_image;
+    indexed_table_workers = Workers_host(index_workers,:);
+    DistanceType = "HostHost";
+    GetDistancesHHorWW(indexed_table_workers,Workers_host_colour,Workers_invader_colour, current_image,DistanceType)
+   
+    % Process invader-invader distances
+    index_workers = Workers_invader.Image == current_image;
+    indexed_table_workers = Workers_invader(index_workers,:);
+    DistanceType = "InvaderInvader";
+    GetDistancesHHorWW(indexed_table_workers,Workers_host_colour,Workers_invader_colour, current_image,DistanceType)
+
+    % Process host-invader distances
     index_workers_host = Workers_host.Image == current_image;
-    indexed_table_workers_host = Workers_host(index_workers_host,:);
+    indexed_table_workers_host = Workers_host(index_workers,:);
+    index_workers_invader = Workers_invader.Image == current_image;
+    indexed_table_invader = Workers_invader(index_workers,:);
+    DistanceType = "Host-Invader"
     
-% %     For every set of coordinates per one image, search against all other coordinates in
-% %     the image, removing its own coordinates each iteration to avoid zero
-% %     distances
-% %     create empty variable to write new rows to in loop below
-
-distance_store = [];
-
-% Host vs host workers
-    for b = 1:height(indexed_table_workers_host);
-        index_workers_host = Workers_host.Image == current_image;              % Re index the table each iteration,
-        indexed_table_workers_host = Workers_host(index_workers_host,:);      % as each iteration you are removing one set of coordinates
-        current_coordinate_host = indexed_table_workers_host{b,2:3};              % index x and y coords, at row b
-        indexed_table_workers_host{b,2:3} = [NaN];                          % remove current coordinate from table to be searched
-        [idx,dist] = dsearchn(indexed_table_workers_host{:,2:3}, current_coordinate_host); % Search list of coordinates with current coordinate
-        nearest_coord_host = indexed_table_workers_host{idx,2:3};
-        distance_matrix_new_row = [Workers_host_colour,"NA",current_image,idx,dist,"Host-Host",current_coordinate_host,nearest_coord_host];
-        image_width_height = indexed_table_workers_host{b,7:8};
-        writematrix([Workers_host_colour,"NA",current_image,idx,dist,"Host-Host",current_coordinate_host,nearest_coord_host,image_width_height],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
-        
-
-    end
-        
     
-    % same as above, for invaders
-    index_workers_invader = Workers_invaders.Image == current_image;
-    indexed_table_workers_invader = Workers_invaders(index_workers_invader,:);
- 
-    for b = 1:height(indexed_table_workers_host);
-        current_coordinate_host = indexed_table_workers_host{b,2:3};   % index x and y coords, at row b
-        [idx,dist] = dsearchn(indexed_table_workers_invadert{:,2:3}, current_coordinate_host); % Search for each image in invader file
-        writematrix([Workers_host_colour,Worker_invader_colour,current_image,idx,dist,"Host-Invader"],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
-   end   
     
 % %       Plot image with coordinates
 % % This goes before the loop
@@ -263,4 +261,74 @@ distance_store = [];
 % text(x(1),y(1),num2str(dist,'%.2f'),'FontSize', 10, 'FontWeight','Bold',"Color","Yellow")
    
 end
+end
+
+function [] = GetDistancesHHorWW(indexed_table_workers,Workers_host_colour,Workers_invader_colour, current_image,DistanceType);
+
+if ~isempty(indexed_table_workers) % if table is not empty, process the image:
+    
+    for b = 1:height(indexed_table_workers);
+        current_coordinate = indexed_table_workers{b,2:3};              % index x and y coords, at row b
+        indexed_table_workers{b,2:3} = [NaN];                          % remove current coordinate from table to be searched
+        [idx,dist] = dsearchn(indexed_table_workers{:,2:3}, current_coordinate); % Search list of coordinates with current coordinate
+        nearest_coord = indexed_table_workers{idx,2:3};
+        image_width_height = indexed_table_workers{b,7:8};
+        indexed_table_workers{b,2:3} = current_coordinate; % return current coord to table after calculated distances
+        
+        if DistanceType == "HostHost"
+            writematrix([Workers_host_colour,"NA",current_image,idx,dist,"Host-Host",current_coordinate,nearest_coord,image_width_height],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
+        else
+            if DistanceType == "InvaderInvader"
+                writematrix(["NA",Workers_invader_colour,current_image,idx,dist,"Invader-Invader",current_coordinate,nearest_coord,image_width_height],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
+            end
+        end
+    end
+else
+    if DistanceType == "HostHost"
+        writematrix([Workers_host_colour,"NA",current_image,"NA","NA","Host-Host","NA","NA","NA","NA","NA","NA"],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
+    else
+        if DistanceType == "InvaderInvader"
+            writematrix(["NA",Workers_invader_colour,current_image,"NA","NA","Invader-Invader","NA","NA","NA","NA","NA","NA"],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
+        end
+    end
+end
+end
+
+function [] = GetDistancesHWorWH(indexed_table_workers_host,indexed_table_workers_invader,Workers_host_colour,Workers_invader_colour, current_image,DistanceType);
+
+if ~isempty(num) & ~isempty(zeros)
+    disp("Not Empty")
+    % put code in here!
+    
+else
+    disp("EMPTY")
+end
+
+
+
+%     for b = 1:height(indexed_table_workers);
+%         current_coordinate = indexed_table_workers{b,2:3};              % index x and y coords, at row b
+%         indexed_table_workers{b,2:3} = [NaN];                          % remove current coordinate from table to be searched
+%         [idx,dist] = dsearchn(indexed_table_workers{:,2:3}, current_coordinate); % Search list of coordinates with current coordinate
+%         nearest_coord = indexed_table_workers{idx,2:3};
+%         image_width_height = indexed_table_workers{b,7:8};
+%         indexed_table_workers{b,2:3} = current_coordinate; % return current coord to table after calculated distances
+%         
+%         if DistanceType == "HostHost"
+%             writematrix([Workers_host_colour,"NA",current_image,idx,dist,"Host-Host",current_coordinate,nearest_coord,image_width_height],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
+%         else
+%             if DistanceType == "InvaderInvader"
+%                 writematrix(["NA",Workers_invader_colour,current_image,idx,dist,"Invader-Invader",current_coordinate,nearest_coord,image_width_height],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
+%             end
+%         end
+%     end
+% else
+%     if DistanceType == "HostHost"
+%         writematrix([Workers_host_colour,"NA",current_image,"NA","NA","Host-Host","NA","NA","NA","NA","NA","NA"],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
+%     else
+%         if DistanceType == "InvaderInvader"
+%             writematrix(["NA",Workers_invader_colour,current_image,"NA","NA","Invader-Invader","NA","NA","NA","NA","NA","NA"],"EucDistances.txt","Delimiter","tab","WriteMode","Append");
+%         end
+%     end
+% end
 end
