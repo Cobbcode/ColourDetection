@@ -13,16 +13,6 @@ switch answers
         getInputFolder = uigetdir([],"Choose Input Folder");
         getOutputFolder = uigetdir([],"Choose Output Folder");
         getParametersFolder = uigetdir([],"Choose Parameters Folder");
-    case 'Home'
-        getInputFolder = "F:\Temnothorax_fusion\fusion_experiment\images\images_original";
-        getOutputFolder = "C:\Users\Ben\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_output";
-        getParametersFolder = "C:\Users\Ben\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_parameters";
-        getTrialsProcessedFolder = "C:\Users\Ben\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_trials_processed";
-    case 'University'
-        getInputFolder = "D:\Temnothorax_fusion\fusion_experiment\images\images_original";
-        getOutputFolder = "C:\Users\bc16551\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_output";
-        getParametersFolder = "C:\Users\bc16551\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_parameters";
-        getTrialsProcessedFolder = "C:\Users\bc16551\OneDrive - University of Bristol\PhD\Year 2\Temnothorax_trials_processed";
     otherwise
         errorMessage = sprintf("%s","Error: No folders chosen");
         uiwait(warndlg(errorMessage));
