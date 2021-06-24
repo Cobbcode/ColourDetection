@@ -1,0 +1,235 @@
+%% Manual ID images loop
+        getInputFolder = uigetdir([],"Choose Input Folder");
+        getOutputFolder = uigetdir([],"Choose Output Folder");
+    
+% Check if input folder exists
+if ~isfolder(getInputFolder)
+    errorMessage = sprintf('Error: The following folder does not exist:\n%s\nCheck your folder paths again', getInputFolder);
+    uiwait(warndlg(errorMessage));
+end
+
+% Get directory of folders
+InputFolders = dir(getInputFolder);
+OutputFolders = dir(getOutputFolder);
+
+%
+% Creat txt file name for storing txtfile with list of trials that have
+% been processed (doesn't need to be in loop)
+
+% Remove . and .. from folder.name (this refers to parent folders, not needed)
+InputFolders = InputFolders(~ismember({InputFolders.name}, {'.', '..'}));
+OutputFolders = OutputFolders(~ismember({OutputFolders.name}, {'.', '..'}));
+
+% Sort folder order correctly with a file exchange function nasortfiles
+% (must have nasortfiles downloaded and in your matlab project folder path)
+[~,ndx] = natsortfiles({InputFolders.name});
+InputFolders = InputFolders(ndx);
+[~,ndx] = natsortfiles({OutputFolders.name});
+OutputFolders = OutputFolders(ndx);
+
+% Create output folders for manual checking
+OneFolderOutput = sprintf("%s",getOneFolderOutput,"\"); % not needed in loop
+txtfile_name = sprintf("%s",OneFolderOutput,"Number_of_ants_per_trial.txt");
+txtfile_name_coords = sprintf("%s",OneFolderOutput,"Coordinates.txt");
+
+if ~isfile(txtfile_name_coords) & ~isfile(txtfile_name)
+    writematrix(["Folder","Image","X","Y","Ant_colour"],txtfile_name_coords,"Delimiter","tab"); % write matrix to txt file. This OVERWRITES the previous file if run a second time
+    writematrix(["Folder","Image","Number of ants","Ant_colour"],txtfile_name,"Delimiter","tab");
+else
+    fprintf("Text files already exist, not overwriting\n")
+end
+
+% Name for txtfile containing list of trials to process
+Trials_to_check_path = sprintf("%s",OneFolderOutput,"Trials_to_check.txt");
+
+% Check if txtfile containing trials to process is there
+if ~isfile(Trials_to_check_path)
+    errorMessage = sprintf("Error: The list of trials to process does not exist!\n");
+    uiwait(warndlg(errorMessage));
+    return
+else
+    % Read trials to be processsed
+    Trials_to_process = readtable(Trials_to_check_path,"Delimiter","tab","ReadVariableNames",false);
+    Trials_to_process_array = table2array(Trials_to_process);
+    fprintf("Successfully found text file with list of folders to process\n")
+end
+
+Invader_trials_path = sprintf("%s",getOneFolderOutput,"\Invader_trials_list.txt");
+% Check if txtfile containg list of invader trials exists
+if ~isfile(Invader_trials_path)
+    errorMessage = sprintf("Error: The list of invader trials doesn't exist!\n");
+    uiwait(warndlg(errorMessage));
+else
+    % Read trials to be processsed
+    Invader_trials_to_process = readtable(Invader_trials_path,"Delimiter","tab");
+    Invader_trials_to_process = table2array(Invader_trials_to_process);
+    fprintf("Successfully found text file with list of invader folders%\n")
+end
+%
+% Specify worker colour using UI input with list of options
+list = {'darkblue','lightblue','green','yellow','red','orange','pink'};
+[indx,tf] = listdlg('ListString',list,"SelectionMode","Single");
+prompt_message = "Do you want to process worker or queen images";
+answers = questdlg(prompt_message,"Pick an option","Worker","Queen","Queen");
+% Handle response
+switch answers
+    case 'Worker'
+        ant_colour = sprintf("%s","Workers_",list{indx});
+    case 'Queen'
+        ant_colour = sprintf("%s","Queen_",list{indx});
+    otherwise
+        return
+end
+
+for k = 1:length(InputFolders);
+    
+    % Generate folder paths
+    Input = sprintf("%s",InputFolders(k).folder,"\",InputFolders(k).name);
+    current_folder = InputFolders(k).name;
+    
+    % Get a list of all JPG files in the folder
+    filePattern = fullfile(Input, '*.JPG');
+    jpgFiles = dir(filePattern);
+    
+    % Sort jpg files using nasortfules function, filexchange
+    [~,ndx] = natsortfiles({jpgFiles.name});
+    jpgFiles = jpgFiles(ndx);
+    
+    
+    if contains(current_folder, Trials_to_process_array) == 1
+        fprintf("Processing folder %s%s \n",InputFolders(k).name,"_...");
+        
+        % Run loop function
+        ProcessAntImages(jpgFiles,txtfile_name_coords,txtfile_name,OneFolderOutput,current_folder,ant_colour,Invader_trials_to_process);
+    else
+        fprintf("Skipping folder %s%s%s \n",InputFolders(k).name,"_",", not in txtfile of trials to process");
+    end
+end
+%%
+% Single_folder_loop placed into function
+function [] = ProcessAntImages(jpgFiles,txtfile_name_coords,txtfile_name,OneFolderOutput,current_folder,ant_colour,Invader_trials_to_process)
+
+Trial_name = sprintf("%s",current_folder,"_",ant_colour);
+%
+if contains(Trial_name,Invader_trials_to_process) == 1
+    fprintf("Ants from this trial are invaders, starting from image 250... \n");
+    firstimage = [250,400,800,1200];
+else
+    fprintf("Ants from this trial are hosts, also checking image 1... \n");
+    firstimage = [250,400,800,1200];
+end
+
+for k = firstimage;
+    
+    baseFileName = jpgFiles(k).name;
+    fullFileName = fullfile(jpgFiles(k).folder, baseFileName);
+    
+    filename = sprintf("%s",baseFileName);
+    [~,name,~] = fileparts(filename);
+    
+    % read image, name as "ant"
+    ant = imread(fullFileName);
+    
+    % for checking colour workers, images in each folder
+    image_name_output = sprintf("%s",OneFolderOutput,current_folder,"_",name,"_");
+    image_number = k;
+    ant_manual_check_AllAnts(ant, txtfile_name_coords,txtfile_name,filename, image_name_output,current_folder,ant_colour,image_number);
+end
+end
+
+% Function to select all ants
+
+function [] = ant_manual_check_AllAnts(ant,txtfile_name_coords,txtfile_name,filename, image_name_output,current_folder,ant_colour,image_number)
+% Create filename for image export in output folder
+image_all_ants = sprintf("%s",image_name_output,ant_colour,".jpg");
+
+% if image already exists, do NOT overwrite!
+if ~isfile(image_all_ants)
+    % create x and y coord variables, to avoid errors if no poimts selected
+    x_coord = [];
+    y_coord = [];
+    
+    cla reset;
+    close;
+    imshow(ant)
+    hold on
+    
+    % Text to tell you which ants to select use interpreter set to none to avoid reading underscores as commands.
+    text(1,40,sprintf("%s",current_folder,filename," (",num2str(image_number),")",". Processing: ",ant_colour),'FontSize', 12, 'FontWeight','Bold',"Color","Yellow", "Interpreter", "none");
+    ax = gca;
+    ax.Interactions = [panInteraction zoomInteraction];
+    enableDefaultInteractivity(ax) % enable interactions
+    
+    n = 0;
+    while true
+        [x, y, button] = ginput(1);
+        if isempty(button) == 1 || button ~= 1 && button ~= 8 ; % if enter (empty) or any other key is pressed, double check you want to quit
+            prompt = "Are you sure you want to stop checking this image?";
+            answers = questdlg(prompt,"Pick an option","Yes","No","No");
+            % Handle response
+            switch answers;
+                case "Yes"
+                    close all; break
+                case "No"
+                    continue
+            end
+        elseif button == 1
+            n = n+1;
+            x_coord(n,:) = x(1); % save x coordinate
+            y_coord(n,:) = y(1); % save y coordinate
+            p(n) =  plot(x, y, "yo","markersize",10); % plot coordinates as you draw
+        elseif button == 8
+            if n>1
+                delete(p(n));               % Remove last plotted point
+                p(n) = [];
+                x_coord(end) = [];
+                y_coord(end) = [];
+            end
+        end
+    end
+    
+    hold off;
+    cla reset;
+    close;
+    
+    % if delete, and redo a point, still plots zeros, so remove any rows with a
+    % zero
+    x_coord(all(x_coord==0,2),:) = [];
+    y_coord(all(y_coord==0,2),:) = [];
+    
+    figure("Visible","off"), imshow(ant); % plot, don't display
+    hold on
+    figure("Visible","off"), imshow(ant); % plot, don't display
+    hold on
+    plot(x_coord,y_coord,"yo","markersize",10,"linewidth",1); % plot centroid locations on the image
+    text(1,40,sprintf("Number of ants %s",num2str(height(x_coord))),'FontSize', 20, 'FontWeight','Bold',"Color","Yellow") % add text of number of blobs (height of centroids matrix)
+    exportgraphics(gca,image_all_ants);  % export paint loss image to folder
+    hold off
+    
+    % concatenate filename of image and centroids, so there is one row per
+    % image and centroid. If no centroids detected, ensure a blank row
+    % is created for the image anyway by changing 0 to 1
+    row_length = height(x_coord); % get the number of rows in centroids
+    row_length(row_length < 1) = 1; % and if less than 1, change it to one
+    
+    filename_repeated = repelem(filename,row_length); % repeat the filename for every row (every time a centroid detected)
+    filename_column = filename_repeated(:); % turn this vector into one single column, so you can concatenate it with the correct number of centroids
+    
+    folder_name_repeated = repelem(sprintf("%s",current_folder),row_length);
+    folder_name_column = folder_name_repeated(:);
+    
+    ant_colour_repeated = repelem(ant_colour,row_length);
+    ant_colour_column = ant_colour_repeated(:);
+    
+    % write matrix to txt file
+    if isempty(x_coord) == 0
+        writematrix([folder_name_column,filename_column,x_coord,y_coord,ant_colour_column],txtfile_name_coords,"WriteMode","append", "Delimiter","tab"); % write matrix to txt file. Append the file each team, instead of overwriting
+    else
+        writematrix([folder_name_column,filename_column,"NA",ant_colour],txtfile_name_coords,"WriteMode","append", "Delimiter","tab"); % write matrix to txt file. Append the file each team, instead of overwriting
+    end
+    
+    writematrix([sprintf("%s",current_folder),filename,num2str(length(x_coord)),ant_colour],txtfile_name,"WriteMode","append", "Delimiter","tab");
+else
+    fprintf("%s%s%s%s\n",current_folder,"_",filename," already exists, NOT overwriting image")
+end
+end
